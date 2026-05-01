@@ -167,7 +167,7 @@ function headerLote(config: ConfigEmpresa, numLote: number): string {
     String(numLote).padStart(4, "0") +         // 004-007 nº lote
     "1" +                                      // 008     tipo registro
     "C" +                                      // 009     operação crédito
-    "30" +                                     // 010-011 tipo pagamento (Pagto Salários)
+    "98" +                                     // 010-011 tipo pagamento (Pagtos Diversos)
     "45" +                                     // 012-013 PIX Transferência
     "040" +                                    // 014-016 versão layout lote
     " " +                                      // 017
