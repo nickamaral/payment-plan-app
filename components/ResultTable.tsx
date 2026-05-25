@@ -345,6 +345,7 @@ function BotaoCnab({
         nomeFavorecido: l.nome,
         chavePix: l.pix!,
         valor: l.salarioAjustado,
+        cpfCnpjFavorecido: l.cpfCnpj ?? undefined,
         mensagem: `PAGAMENTO ${l.secao}`.slice(0, 65),
       }));
 

@@ -90,25 +90,29 @@ function tipoInscricao(doc: string): string {
   return limparDoc(doc).length === 14 ? "2" : "1";
 }
 
+// Nota 40 p.72: CPF/CNPJ devem ser enviados só com dígitos (sem pontos, traços, barra)
+function normalizarChavePix(chave: string, tipo: string): string {
+  const c = chave.trim();
+  if (tipo === "03") return c.replace(/\D/g, "");
+  return c;
+}
+
 /**
- * Detecta o tipo de chave PIX (Nota 37/40):
- *   01 = CPF  (11 dígitos)
- *   02 = CNPJ (14 dígitos)
- *   03 = Telefone (+55...)
- *   04 = E-mail
- *   05 = Chave aleatória (EVP / UUID)
+ * Detecta o tipo de chave PIX — Nota 37, p.71 Itaú SISPAG v086:
+ *   01 = Telefone (inicia com "+")
+ *   02 = E-mail   (contém "@")
+ *   03 = CPF (11 dígitos) ou CNPJ (14 dígitos) — mesmo código para ambos
+ *   04 = Chave Aleatória (UUID)
  */
 export function detectarTipoChave(chave: string): string {
   const c = chave.trim();
-  if (c.startsWith("+")) return "03";
-  if (c.includes("@")) return "04";
-  const digits = c.replace(/\D/g, "");
-  if (/^\d{11}$/.test(digits) && c === digits) return "01"; // CPF puro
-  if (/^\d{14}$/.test(digits) && c === digits) return "02"; // CNPJ puro
-  // UUID / chave aleatória
+  if (c.startsWith("+")) return "01";
+  if (c.includes("@"))  return "02";
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c))
-    return "05";
-  return "05"; // fallback: chave aleatória
+    return "04";
+  const digits = c.replace(/\D/g, "");
+  if (digits.length === 11 || digits.length === 14) return "03";
+  return "04";
 }
 
 function assertLen(r: string, expected: number, label: string): void {
@@ -247,9 +251,11 @@ function segmentoB(
 ): string {
   const cpfCnpj = limparDoc(pag.cpfCnpjFavorecido ?? "");
   const tipoChave = detectarTipoChave(pag.chavePix);
-  // Chave PIX: campo de 100 bytes (pos 128-227)
-  const chave = pag.chavePix.trim().slice(0, 100).padEnd(100, " ");
-  const mensagem = alfa(pag.mensagem ?? "", 65);
+  // Chave PIX: campo de 100 bytes (pos 128-227) — normalizada per Nota 40
+  const chaveBruta = normalizarChavePix(pag.chavePix, tipoChave);
+  const chave = chaveBruta.slice(0, 100).padEnd(100, " ");
+  // Picture 9(65) = numérico; zeros quando sem mensagem (espaços causariam rejeição)
+  const mensagem = pag.mensagem ? alfa(pag.mensagem, 65) : "0".repeat(65);
 
   const r =
     "341" +                                            // 001-003
@@ -283,8 +289,8 @@ function trailerLote(
     " ".repeat(9) +                                    // 009-017
     String(qtdRegistros).padStart(6, "0") +            // 018-023 qtde registros (Nota 17)
     valorCnab(valorTotal, 18) +                        // 024-041 valor total 9(16)V9(02)
-    "0".repeat(18) +                                   // 042-059 zeros
-    " ".repeat(171) +                                  // 060-230
+    "0".repeat(15) +                                   // 042-056 TOTAL QTDE MOEDA 9(07)V9(08)
+    " ".repeat(174) +                                  // 057-230 BRANCOS
     " ".repeat(10);                                    // 231-240
 
   assertLen(r, 240, "Trailer Lote");

@@ -154,6 +154,8 @@ export function parseGrid(grid: unknown[][]): FolhaRow[] {
       pix: colIdx.pix != null ? formatCell(getCell(row, colIdx.pix)) : null,
       contaBancaria:
         colIdx.conta != null ? formatCell(getCell(row, colIdx.conta)) : null,
+      cpfCnpj:
+        colIdx.cpfCnpj != null ? formatCell(getCell(row, colIdx.cpfCnpj)) : null,
       linhaOriginal: i + 1,
     });
   }
@@ -168,6 +170,7 @@ type ColIndex = {
   cliente?: number;
   pix?: number;
   conta?: number;
+  cpfCnpj?: number;
 };
 
 function detectarCabecalho(row: unknown[]): ColIndex | null {
@@ -192,6 +195,7 @@ function detectarCabecalho(row: unknown[]): ColIndex | null {
     cliente: find([/cliente/, /fornecedor/]),
     pix: find([/^pix/, /chave/]),
     conta: find([/^conta/, /banco/, /itau/, /ita\u00fa/]),
+    cpfCnpj: find([/cpf/, /cnpj/, /documento/, /doc$/]),
   };
 }
 

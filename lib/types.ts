@@ -49,6 +49,8 @@ export type FolhaRow = {
   pix?: string | null;
   /** Coluna opcional "CONTA ITAU" quando não há PIX. */
   contaBancaria?: string | null;
+  /** Coluna "CPF/CNPJ" do favorecido — obrigatório para PIX (BACEN Nota 15). */
+  cpfCnpj?: string | null;
   /** Índice original da linha na planilha (para auditoria). */
   linhaOriginal?: number;
 };
