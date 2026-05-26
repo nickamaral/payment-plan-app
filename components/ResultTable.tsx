@@ -438,6 +438,14 @@ export function ResultTable({
   return (
     <div className="space-y-6">
       {periodoInfo && <PeriodoBanner periodoInfo={periodoInfo} />}
+      {linhas.some((l) => l.salarioEstimado) && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-400">
+          <strong>Modo estimativa:</strong> valores marcados com{" "}
+          <span className="font-mono">~</span> foram calculados com taxa diária
+          estimada (salário quinzenal ÷ dias úteis do período). Carregue o
+          arquivo de salários mensais para cálculos precisos.
+        </div>
+      )}
       <SummaryCards resumo={resumo} />
 
       {/* Barra de busca + botão CNAB */}
@@ -632,7 +640,13 @@ function SecaoBlock({
               >
                 {l.ajuste === 0 ? "—" : formatBRL(l.ajuste)}
               </td>
-              <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-white">
+              <td
+                className="px-4 py-2.5 text-right font-semibold tabular-nums text-white"
+                title={l.salarioEstimado ? "Valor estimado com base na folha quinzenal" : undefined}
+              >
+                {l.salarioEstimado && (
+                  <span className="mr-0.5 text-amber-400/70">~</span>
+                )}
                 {formatBRL(l.salarioAjustado)}
               </td>
               <td className="px-4 py-2.5">

@@ -27,15 +27,24 @@ export default function Home() {
   const [resultado, setResultado] = useState<ResultadoProcessamento | null>(
     null,
   );
+  const [aguardandoConfirmacaoSemSalarios, setAguardandoConfirmacaoSemSalarios] = useState(false);
 
-  const podeProcessar = folha && salarios && anotacoes && !loading;
+  const podeProcessar = folha !== null && !loading;
 
-  async function handleProcessar() {
-    if (!folha || !salarios || !anotacoes) return;
+  async function handleProcessar(confirmarSemSalarios = false) {
+    if (!folha) return;
+
+    if (!salarios && !confirmarSemSalarios) {
+      setAguardandoConfirmacaoSemSalarios(true);
+      return;
+    }
+
+    setAguardandoConfirmacaoSemSalarios(false);
     setLoading(true);
     setShowLoader(true);
     setErro(null);
     setResultado(null);
+    const salariosDisponivel = salarios !== null;
     const minDelay = new Promise<void>((res) => setTimeout(res, 4500));
     try {
       const [processResult] = await Promise.all([
@@ -43,11 +52,11 @@ export default function Home() {
           const [{ rows: folhaRows, periodoInfo }, salariosRows, textoAnotacoes] =
             await Promise.all([
               parseFolhaQuinzenal(folha),
-              lerSalariosMensais(salarios),
-              lerTextoAnotacoes(anotacoes),
+              salarios ? lerSalariosMensais(salarios) : Promise.resolve([]),
+              anotacoes ? lerTextoAnotacoes(anotacoes) : Promise.resolve(null),
             ]);
-          const eventos = await extractEventos(textoAnotacoes);
-          return processPayroll(folhaRows, salariosRows, eventos, periodoInfo);
+          const eventos = textoAnotacoes !== null ? await extractEventos(textoAnotacoes) : [];
+          return processPayroll(folhaRows, salariosRows, eventos, periodoInfo, salariosDisponivel);
         })(),
         minDelay,
       ]);
@@ -67,8 +76,8 @@ export default function Home() {
           Análise Quinzenal da Folha
         </h1>
         <p className="mt-2 text-neutral-400">
-          Faça upload dos três arquivos, clique em processar e receba a tabela
-          ajustada com as notificações por funcionário. A planilha original{" "}
+          Faça upload da folha de pagamento (obrigatória) e, opcionalmente, dos
+          arquivos de salários e anotações. A planilha original{" "}
           <b className="text-neutral-300">não é modificada</b>.
         </p>
       </header>
@@ -82,25 +91,25 @@ export default function Home() {
           hint="Planilha com seções (PJ COM NF, PJ SEM NF), Data | Descrição | Valor | Cliente/Fornecedor | PIX."
         />
         <FileDropzone
-          label="2. Salários Mensais (.docx ou .xlsx)"
+          label="2. Salários Mensais (.docx ou .xlsx) — opcional"
           accept=".docx,.xlsx"
           file={salarios}
           onFile={setSalarios}
-          hint="Nome + salário mensal. Base para calcular desconto diário (÷ 22 dias)."
+          hint="Nome + salário mensal. Base para calcular desconto diário (÷ 22 dias). Sem este arquivo, a taxa é estimada pelo valor quinzenal."
         />
         <FileDropzone
-          label="3. Informações Adicionais (.docx ou .txt)"
+          label="3. Informações Adicionais (.docx ou .txt) — opcional"
           accept=".docx,.txt"
           file={anotacoes}
           onFile={setAnotacoes}
-          hint="Texto livre com faltas, demissões, contratações. Claude interpreta."
+          hint="Texto livre com faltas, demissões, contratações. Claude interpreta. Sem este arquivo, nenhum evento é processado."
         />
       </section>
 
       <div className="mt-6 flex items-center gap-4">
         <button
           disabled={!podeProcessar}
-          onClick={handleProcessar}
+          onClick={() => handleProcessar()}
           className="rounded-md bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-400 active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-500 disabled:shadow-none"
         >
           {loading ? "Processando…" : "Processar folha"}
@@ -119,6 +128,40 @@ export default function Home() {
           </h2>
           <ResultTable resultado={resultado} />
         </section>
+      )}
+
+      {aguardandoConfirmacaoSemSalarios && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-neutral-900 p-6 shadow-2xl">
+            <h2 className="text-base font-semibold text-amber-300">
+              Nenhuma base de salários carregada
+            </h2>
+            <p className="mt-3 text-sm text-neutral-300">
+              O sistema irá <strong>estimar</strong> o salário diário de cada
+              funcionário com base no valor da folha quinzenal (valor quinzenal
+              ÷ dias úteis do período). Os resultados são{" "}
+              <strong>aproximados</strong> e não devem ser usados como
+              referência definitiva.
+            </p>
+            <p className="mt-2 text-sm text-neutral-400">
+              Deseja continuar mesmo assim?
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setAguardandoConfirmacaoSemSalarios(false)}
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-neutral-300 transition-colors hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleProcessar(true)}
+                className="flex-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-400"
+              >
+                Continuar assim mesmo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <AnimatePresence>

@@ -20,7 +20,11 @@ export const DIAS_BASE_MENSAL = 22;
  *
  * Match de nomes: usa `resolveName` (exato → substring → primeiro-nome único).
  * Eventos sem match ou ambíguos vão pra `eventosSemMatch`.
- * Funcionários sem salarioMensal conhecido: aparecem em `funcionariosSemSalarioMensal`.
+ * Funcionários sem salarioMensal conhecido: aparecem em `funcionariosSemSalarioMensal`
+ * (apenas quando salariosDisponivel = true; sem o arquivo não faz sentido listar).
+ *
+ * Quando salariosDisponivel = false, a taxa diária é estimada via
+ * salarioQuinzenal / diasUteis do período (marcada como salarioEstimado: true).
  *
  * Não modifica os inputs.
  */
@@ -29,6 +33,7 @@ export function processPayroll(
   salariosMensais: SalarioMensalRow[],
   eventos: Evento[],
   periodoInfo: PeriodoInfo | null = null,
+  salariosDisponivel = true,
 ): ResultadoProcessamento {
   const eventoParaLinha = new Map<Evento, number>();
   eventos.forEach((evento) => {
@@ -42,10 +47,21 @@ export function processPayroll(
     const notificacoes: Notificacao[] = [];
     const salarioMensalRow = resolveName(row.nome, salariosMensais);
     const salarioMensal = salarioMensalRow?.salarioMensal ?? null;
-    const valorDiario =
-      salarioMensal != null ? salarioMensal / DIAS_BASE_MENSAL : null;
 
-    if (salarioMensal == null) {
+    let valorDiario: number | null;
+    let salarioEstimado: true | undefined;
+
+    if (salarioMensal != null) {
+      valorDiario = salarioMensal / DIAS_BASE_MENSAL;
+    } else if (!salariosDisponivel) {
+      const diasUteis = periodoInfo?.diasUteis ?? 10;
+      valorDiario = row.salarioQuinzenal / diasUteis;
+      salarioEstimado = true;
+    } else {
+      valorDiario = null;
+    }
+
+    if (salarioMensal == null && salariosDisponivel) {
       funcionariosSemSalarioMensal.push(row.nome);
     }
 
@@ -83,9 +99,10 @@ export function processPayroll(
             .flatMap((f) => f.diasFalta ?? [])
             .sort((a, b) => a - b)
             .join(", ");
+          const estimadoSufixo = salarioEstimado ? " (taxa estimada)" : "";
           notificacoes.push({
             severidade: "info",
-            mensagem: `Faltas nos dias ${diasStr} — desconto de R$ ${desconto.toFixed(2)} (${totalDias} × R$ ${valorDiario.toFixed(2)}).`,
+            mensagem: `Faltas nos dias ${diasStr} — desconto de R$ ${desconto.toFixed(2)} (${totalDias} × R$ ${valorDiario.toFixed(2)}${estimadoSufixo}).`,
           });
         }
       }
@@ -106,6 +123,7 @@ export function processPayroll(
       valorDiario,
       salarioMensal,
       notificacoes,
+      ...(salarioEstimado ? { salarioEstimado: true as const } : {}),
     };
   });
 

@@ -91,6 +91,8 @@ export type LinhaAjustada = FolhaRow & {
   salarioMensal: number | null;
   /** Lista de notificações geradas (ex: "atencao: funcionário demitido"). */
   notificacoes: Notificacao[];
+  /** true quando a taxa diária foi estimada a partir do salário quinzenal (sem arquivo de salários). */
+  salarioEstimado?: boolean;
 };
 
 export type ResultadoProcessamento = {
